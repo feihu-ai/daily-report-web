@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#03040b">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="赛博老板的定制早报 - AI 生成并推送到微信">
+  <title>赛博老板的定制早报</title>
+  <style>
+    :root {
+      --bg: #03040b;
+      --panel: rgba(6, 11, 24, 0.82);
+      --panel-deep: #02050b;
+      --cyan: #00f0ff;
+      --cyan-rgb: 0, 240, 255;
+      --magenta: #ff2bd6;
+      --magenta-rgb: 255, 43, 214;
+      --violet: #8b5cff;
+      --violet-rgb: 139, 92, 255;
+      --lime: #39ffb0;
+      --text: #ecfbff;
+      --muted: #7890a6;
+      --display: "Bahnschrift", "Segoe UI Variable Display", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+      --mono: "Cascadia Code", "Cascadia Mono", Consolas, "Microsoft YaHei UI", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      min-width: 320px;
+      background: var(--bg);
+      scrollbar-color: rgba(var(--cyan-rgb), 0.45) transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100svh;
+      margin: 0;
+      padding: 34px 18px 24px;
+      display: grid;
+      place-items: center;
+      overflow-x: hidden;
+      color: var(--text);
+      font-family: var(--display);
+      background:
+        radial-gradient(circle at 10% 8%, rgba(var(--cyan-rgb), 0.16), transparent 29%),
+        radial-gradient(circle at 90% 4%, rgba(var(--magenta-rgb), 0.14), transparent 31%),
+        radial-gradient(circle at 50% 105%, rgba(var(--violet-rgb), 0.2), transparent 45%),
+        linear-gradient(180deg, #03040b 0%, #060916 52%, #02030a 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 8% -20% -10%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.3;
+      background-image:
+        linear-gradient(rgba(var(--cyan-rgb), 0.22) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--cyan-rgb), 0.16) 1px, transparent 1px);
+      background-size: 50px 50px;
+      transform: perspective(720px) rotateX(62deg);
+      transform-origin: 50% 100%;
+      animation: grid-flow 14s linear infinite;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 5%, #000 54%, transparent 96%);
+      mask-image: linear-gradient(to bottom, transparent 5%, #000 54%, transparent 96%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0.22;
+      background: repeating-linear-gradient(to bottom, transparent 0 3px, rgba(var(--cyan-rgb), 0.035) 3px 4px);
+      mix-blend-mode: screen;
+    }
+
+    ::selection { color: #02050b; background: var(--cyan); }
+
+    #fxCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .shell {
+      position: relative;
+      z-index: 2;
+      width: min(940px, 100%);
+      animation: boot-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .hero { margin-bottom: 20px; text-align: center; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 12px;
+      border: 1px solid rgba(var(--cyan-rgb), 0.18);
+      border-radius: 999px;
+      color: #8aa3b6;
+      background: rgba(2, 7, 15, 0.55);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .eyebrow-code { color: rgba(var(--cyan-rgb), 0.62); letter-spacing: 0.08em; }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 8px var(--lime), 0 0 18px rgba(57, 255, 176, 0.6);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    h1 {
+      position: relative;
+      margin: 18px 0 8px;
+      color: #f2fdff;
+      font-size: clamp(30px, 6vw, 58px);
+      font-weight: 900;
+      line-height: 1.08;
+      letter-spacing: 0.05em;
+      text-shadow:
+        0 0 7px rgba(255, 255, 255, 0.65),
+        0 0 18px rgba(var(--cyan-rgb), 0.68),
+        0 0 42px rgba(var(--cyan-rgb), 0.35),
+        3px 0 0 rgba(var(--magenta-rgb), 0.22);
+    }
+
+    h1::before,
+    h1::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      opacity: 0.72;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    h1::before {
+      color: var(--magenta);
+      transform: translateX(2px);
+      animation: glitch-a 5.2s steps(1) infinite;
+    }
+
+    h1::after {
+      color: var(--cyan);
+      transform: translateX(-2px);
+      animation: glitch-b 4.7s steps(1) infinite;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: clamp(10px, 1.8vw, 12px);
+      letter-spacing: 0.19em;
+      text-transform: uppercase;
+    }
+
+    .subtitle span:nth-child(2) { margin: 0 10px; color: rgba(var(--magenta-rgb), 0.7); }
+
+    .console-card {
+      position: relative;
+      padding: 24px;
+      overflow: hidden;
+      border: 1px solid rgba(var(--cyan-rgb), 0.28);
+      border-radius: 20px;
+      background:
+        linear-gradient(145deg, rgba(var(--cyan-rgb), 0.055), transparent 25%, transparent 74%, rgba(var(--magenta-rgb), 0.055)),
+        var(--panel);
+      box-shadow:
+        0 30px 90px rgba(0, 0, 0, 0.58),
+        0 0 0 1px rgba(255, 255, 255, 0.025) inset,
+        0 0 45px rgba(var(--cyan-rgb), 0.07);
+      backdrop-filter: blur(20px) saturate(125%);
+    }
+
+    .console-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(110deg, transparent 14%, rgba(255, 255, 255, 0.045) 36%, transparent 53%);
+      transform: translateX(-100%);
+      animation: card-sheen 9s ease-in-out infinite;
+    }
+
+    .corner {
+      position: absolute;
+      z-index: 2;
+      width: 22px;
+      height: 22px;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .corner-tl { top: 8px; left: 8px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+    .corner-tr { top: 8px; right: 8px; border-top: 1px solid var(--magenta); border-right: 1px solid var(--magenta); }
+    .corner-bl { bottom: 8px; left: 8px; border-bottom: 1px solid var(--magenta); border-left: 1px solid var(--magenta); }
+    .corner-br { right: 8px; bottom: 8px; border-right: 1px solid var(--cyan); border-bottom: 1px solid var(--cyan); }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 21px;
+    }
+
+    .panel-kicker {
+      color: rgba(var(--cyan-rgb), 0.65);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.22em;
+    }
+
+    .panel-head h2 {
+      margin: 5px 0 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid rgba(var(--cyan-rgb), 0.2);
+      border-radius: 999px;
+      color: #8ea8bb;
+      background: rgba(1, 6, 13, 0.62);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.13em;
+      transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .status-light {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #73869a;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    .status-pill[data-tone="busy"] {
+      color: var(--cyan);
+      border-color: rgba(var(--cyan-rgb), 0.55);
+      box-shadow: 0 0 17px rgba(var(--cyan-rgb), 0.14);
+    }
+
+    .status-pill[data-tone="busy"] .status-light { background: var(--cyan); animation: pulse 0.8s ease-in-out infinite; }
+
+    .status-pill[data-tone="success"] {
+      color: var(--lime);
+      border-color: rgba(57, 255, 176, 0.5);
+      box-shadow: 0 0 17px rgba(57, 255, 176, 0.12);
+    }
+
+    .status-pill[data-tone="success"] .status-light { background: var(--lime); }
+
+    .status-pill[data-tone="error"] {
+      color: #ff628f;
+      border-color: rgba(255, 98, 143, 0.55);
+      box-shadow: 0 0 17px rgba(255, 60, 120, 0.13);
+    }
+
+    .status-pill[data-tone="error"] .status-light { background: #ff628f; }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 15px;
+    }
+
+    .field { --field-color: var(--cyan); --field-rgb: var(--cyan-rgb); min-width: 0; }
+    .field.field-b { --field-color: var(--magenta); --field-rgb: var(--magenta-rgb); }
+    .field.field-c { --field-color: var(--violet); --field-rgb: var(--violet-rgb); grid-column: 1 / -1; }
+
+    .field label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 8px;
+      cursor: text;
+    }
+
+    .field-index {
+      display: grid;
+      place-items: center;
+      width: 23px;
+      height: 23px;
+      flex: 0 0 23px;
+      border: 1px solid rgba(var(--field-rgb), 0.45);
+      color: var(--field-color);
+      background: rgba(var(--field-rgb), 0.06);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(var(--field-rgb), 0.08) inset;
+    }
+
+    .field-copy { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+
+    .field-copy strong {
+      color: #dff9ff;
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.055em;
+    }
+
+    .field-copy small {
+      overflow: hidden;
+      color: #587286;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .input-wrap { position: relative; display: flex; align-items: center; }
+
+    .prompt-glyph {
+      position: absolute;
+      left: 13px;
+      z-index: 1;
+      color: rgba(var(--field-rgb), 0.76);
+      font-family: var(--mono);
+      font-size: 16px;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(var(--field-rgb), 0.5);
+    }
+
+    .input-wrap input,
+    .input-wrap textarea {
+      width: 100%;
+      margin: 0;
+      border: 1px solid rgba(var(--field-rgb), 0.2);
+      border-radius: 9px;
+      outline: none;
+      color: var(--text);
+      background: rgba(1, 5, 12, 0.82);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.025em;
+      transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+    }
+
+    .input-wrap input { height: 47px; padding: 0 60px 0 33px; }
+
+    .input-wrap textarea {
+      min-height: 102px;
+      padding: 13px 14px;
+      line-height: 1.7;
+      resize: vertical;
+    }
+
+    .input-wrap input::placeholder,
+    .input-wrap textarea::placeholder { color: #405265; }
+
+    .input-wrap input:focus,
+    .input-wrap textarea:focus {
+      border-color: rgba(var(--field-rgb), 0.72);
+      background: rgba(2, 9, 17, 0.94);
+      box-shadow:
+        0 0 0 3px rgba(var(--field-rgb), 0.09),
+        0 0 22px rgba(var(--field-rgb), 0.13),
+        0 0 23px rgba(var(--field-rgb), 0.08) inset;
+    }
+    .reveal {
+      position: absolute;
+      right: 8px;
+      z-index: 2;
+      padding: 6px 7px;
+      border: 0;
+      border-radius: 5px;
+      color: #61768a;
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.09em;
+      cursor: pointer;
+      transition: color 0.2s ease, background 0.2s ease;
+    }
+
+    .reveal:hover,
+    .reveal:focus-visible {
+      color: var(--field-color);
+      background: rgba(var(--field-rgb), 0.1);
+      outline: none;
+    }
+
+    .field-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 7px;
+      color: #526b7e;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.035em;
+    }
+
+    .field-meta b { color: rgba(var(--violet-rgb), 0.92); font-weight: 600; }
+
+    .send-button {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      height: 58px;
+      margin-top: 20px;
+      padding: 0 22px;
+      overflow: hidden;
+      border: 0;
+      color: #02040a;
+      background: linear-gradient(100deg, var(--cyan) 0%, #5ad9ff 27%, #7a72ff 58%, var(--magenta) 100%);
+      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+      clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+      box-shadow: 0 0 28px rgba(var(--cyan-rgb), 0.2), 0 0 28px rgba(var(--magenta-rgb), 0.12);
+      transition: transform 0.22s ease, filter 0.22s ease, box-shadow 0.22s ease;
+    }
+
+    .send-button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 25%, rgba(255, 255, 255, 0.7) 46%, transparent 65%);
+      transform: translateX(-130%);
+      transition: transform 0.75s ease;
+    }
+
+    .send-button:hover:not(:disabled) {
+      filter: brightness(1.12) saturate(1.08);
+      transform: translateY(-2px);
+      box-shadow: 0 0 38px rgba(var(--cyan-rgb), 0.32), 0 0 34px rgba(var(--magenta-rgb), 0.2);
+    }
+
+    .send-button:hover:not(:disabled)::before { transform: translateX(130%); }
+    .send-button:active:not(:disabled) { transform: translateY(0) scale(0.995); }
+    .send-button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+
+    .send-button:disabled {
+      cursor: wait;
+      filter: saturate(0.62) brightness(0.8);
+      box-shadow: none;
+    }
+
+    .button-icon,
+    .button-arrow {
+      position: relative;
+      z-index: 1;
+      font-family: var(--mono);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .button-text { position: relative; z-index: 1; }
+    .button-arrow { margin-left: 2px; transition: transform 0.25s ease; }
+    .send-button:hover .button-arrow { transform: translateX(5px); }
+
+    .spinner {
+      display: none;
+      position: relative;
+      z-index: 1;
+      width: 17px;
+      height: 17px;
+      border: 2px solid rgba(2, 4, 10, 0.28);
+      border-top-color: #02040a;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .send-button.is-loading .spinner { display: block; }
+    .send-button.is-loading .button-icon { display: none; }
+
+    .terminal {
+      margin-top: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(var(--cyan-rgb), 0.18);
+      border-radius: 11px;
+      background: var(--panel-deep);
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.38), 0 0 24px rgba(var(--cyan-rgb), 0.035) inset;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 35px;
+      padding: 0 12px;
+      border-bottom: 1px solid rgba(var(--cyan-rgb), 0.1);
+      background: linear-gradient(180deg, rgba(var(--cyan-rgb), 0.055), rgba(0, 0, 0, 0.11));
+    }
+
+    .terminal-dots { display: flex; gap: 5px; }
+
+    .terminal-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #314150;
+    }
+
+    .terminal-dots span:first-child { background: rgba(var(--magenta-rgb), 0.7); }
+    .terminal-dots span:nth-child(2) { background: rgba(255, 206, 84, 0.69); }
+    .terminal-dots span:last-child { background: rgba(57, 255, 176, 0.62); }
+
+    .terminal-title {
+      color: #526d80;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+    }
+
+    .terminal-clear {
+      margin-left: auto;
+      padding: 4px 7px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: #486274;
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .terminal-clear:hover,
+    .terminal-clear:focus-visible {
+      color: var(--cyan);
+      border-color: rgba(var(--cyan-rgb), 0.22);
+      outline: none;
+    }
+
+    .log-output {
+      height: 166px;
+      padding: 11px 13px;
+      overflow: auto;
+      color: #91aebe;
+      background:
+        linear-gradient(rgba(var(--cyan-rgb), 0.017) 1px, transparent 1px),
+        #02050b;
+      background-size: 100% 24px;
+      font-family: var(--mono);
+      font-size: 10px;
+      line-height: 1.65;
+      scrollbar-color: rgba(var(--cyan-rgb), 0.28) transparent;
+      scrollbar-width: thin;
+    }
+
+    .log-output::-webkit-scrollbar { width: 6px; }
+    .log-output::-webkit-scrollbar-track { background: transparent; }
+    .log-output::-webkit-scrollbar-thumb { border-radius: 99px; background: rgba(var(--cyan-rgb), 0.24); }
+
+    .log-line {
+      display: grid;
+      grid-template-columns: 67px 35px minmax(0, 1fr);
+      gap: 7px;
+      padding: 2px 0;
+      animation: log-in 0.2s ease-out both;
+    }
+
+    .log-time { color: #3e586a; white-space: nowrap; }
+    .log-tag { color: #6e8ca1; font-size: 9px; font-weight: 700; letter-spacing: 0.02em; }
+    .log-message { min-width: 0; overflow-wrap: anywhere; }
+
+    .log-line[data-level="pending"] .log-tag { color: var(--cyan); text-shadow: 0 0 8px rgba(var(--cyan-rgb), 0.45); }
+    .log-line[data-level="pending"] .log-message { color: #b6f8ff; }
+    .log-line[data-level="success"] .log-tag { color: var(--lime); text-shadow: 0 0 8px rgba(57, 255, 176, 0.36); }
+    .log-line[data-level="success"] .log-message { color: #8effd0; }
+    .log-line[data-level="error"] .log-tag { color: #ff5d8d; text-shadow: 0 0 8px rgba(255, 43, 118, 0.38); }
+    .log-line[data-level="error"] .log-message { color: #ff9ab4; }
+    .log-line[data-level="dim"] .log-message { color: #526b7c; }
+
+    .footnote {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 13px 2px 0;
+      color: #4f6677;
+      font-family: var(--mono);
+      font-size: 9px;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+    }
+
+    .footnote-dot {
+      width: 4px;
+      height: 4px;
+      flex: 0 0 4px;
+      border-radius: 50%;
+      background: rgba(var(--cyan-rgb), 0.55);
+      box-shadow: 0 0 8px rgba(var(--cyan-rgb), 0.45);
+    }
+
+    .page-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 13px;
+      padding: 0 3px;
+      color: #32495a;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.14em;
+    }
+
+    @keyframes boot-in {
+      from { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(7px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    @keyframes grid-flow {
+      from { background-position: 0 0, 0 0; }
+      to { background-position: 0 50px, 50px 0; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.72); }
+    }
+
+    @keyframes glitch-a {
+      0%, 91%, 94%, 100% { clip-path: inset(0 0 100% 0); }
+      92% { clip-path: inset(13% 0 62% 0); }
+      93% { clip-path: inset(61% 0 17% 0); }
+      95% { clip-path: inset(42% 0 38% 0); }
+    }
+
+    @keyframes glitch-b {
+      0%, 87%, 90%, 100% { clip-path: inset(0 0 100% 0); }
+      88% { clip-path: inset(34% 0 44% 0); }
+      89% { clip-path: inset(72% 0 6% 0); }
+      91% { clip-path: inset(5% 0 79% 0); }
+    }
+
+    @keyframes card-sheen {
+      0%, 72% { transform: translateX(-110%); }
+      100% { transform: translateX(120%); }
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes log-in {
+      from { opacity: 0; transform: translateX(-4px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @media (max-width: 700px) {
+      body { padding: 22px 12px 18px; place-items: start center; }
+      .console-card { padding: 19px 15px; border-radius: 15px; }
+      .control-grid { grid-template-columns: 1fr; gap: 14px; }
+      .field-copy small { display: none; }
+      .panel-head { margin-bottom: 18px; }
+      .panel-head h2 { font-size: 16px; }
+      .status-pill { padding: 6px 8px; font-size: 8px; }
+      .send-button { height: 54px; font-size: 14px; }
+      .log-output { height: 190px; font-size: 9px; }
+      .log-line { grid-template-columns: 57px 31px minmax(0, 1fr); gap: 5px; }
+      .page-footer { font-size: 7px; }
+    }
+
+    @media (max-width: 390px) {
+      h1 { letter-spacing: 0.01em; }
+      .eyebrow-code { display: none; }
+      .field-meta span:first-child { display: none; }
+      .footnote { font-size: 8px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+  <main class="shell">
+    <header class="hero">
+      <div class="eyebrow">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span>NEURAL BRIEFING SYSTEM</span>
+        <span class="eyebrow-code">NODE 077</span>
+      </div>
+      <h1 class="glitch" data-text="赛博老板的定制早报">赛博老板的定制早报</h1>
+      <p class="subtitle">
+        <span>把灵感编译成问候</span>
+        <span>/</span>
+        <span>AI &rarr; WECHAT</span>
+      </p>
+    </header>
+
+    <section class="console-card" aria-labelledby="consoleTitle">
+      <span class="corner corner-tl" aria-hidden="true"></span>
+      <span class="corner corner-tr" aria-hidden="true"></span>
+      <span class="corner corner-bl" aria-hidden="true"></span>
+      <span class="corner corner-br" aria-hidden="true"></span>
+
+      <div class="panel-head">
+        <div>
+          <div class="panel-kicker">TRANSMISSION CONSOLE</div>
+          <h2 id="consoleTitle">早报指令舱</h2>
+        </div>
+        <div class="status-pill" id="systemState" data-tone="idle" role="status" aria-live="polite">
+          <span class="status-light" aria-hidden="true"></span>
+          <span id="statusText">STANDBY</span>
+        </div>
+      </div>
+
+      <form id="reportForm" novalidate>
+        <div class="control-grid">
+          <div class="field field-a">
+            <label for="pushplusToken">
+              <span class="field-index" aria-hidden="true">A</span>
+              <span class="field-copy">
+                <strong>PushPlus Token</strong>
+                <small>微信推送通道凭证</small>
+              </span>
+            </label>
+            <div class="input-wrap">
+              <span class="prompt-glyph" aria-hidden="true">&gt;</span>
+              <input id="pushplusToken" name="pushplusToken" type="password" placeholder="输入 PushPlus Token" autocomplete="off" spellcheck="false">
+              <button class="reveal" type="button" data-target="pushplusToken" aria-label="显示或隐藏 PushPlus Token">SHOW</button>
+            </div>
+          </div>
+
+          <div class="field field-b">
+            <label for="deepseekKey">
+              <span class="field-index" aria-hidden="true">B</span>
+              <span class="field-copy">
+                <strong>DeepSeek API Key</strong>
+                <small>神经引擎访问密钥</small>
+              </span>
+            </label>
+            <div class="input-wrap">
+              <span class="prompt-glyph" aria-hidden="true">&gt;</span>
+              <input id="deepseekKey" name="deepseekKey" type="password" placeholder="输入 DeepSeek API Key" autocomplete="off" spellcheck="false">
+              <button class="reveal" type="button" data-target="deepseekKey" aria-label="显示或隐藏 DeepSeek API Key">SHOW</button>
+            </div>
+          </div>
+
+          <div class="field field-c">
+            <label for="topic">
+              <span class="field-index" aria-hidden="true">C</span>
+              <span class="field-copy">
+                <strong>自定义早报主题</strong>
+                <small>核心提示词 · 可自由编辑</small>
+              </span>
+            </label>
+            <div class="input-wrap">
+              <textarea id="topic" name="topic" rows="4" spellcheck="false">请帮我写一段200字科技感早安问候。</textarea>
+            </div>
+            <div class="field-meta">
+              <span>AI 将严格按照此提示词生成早报正文。</span>
+              <span><b id="topicCount">18</b> CHARS</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="send-button" id="sendBtn" type="submit">
+          <span class="button-icon" aria-hidden="true">&#8599;</span>
+          <span class="button-text">一键发送</span>
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="button-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+      </form>
+
+      <div class="terminal" aria-label="运行日志">
+        <div class="terminal-bar">
+          <div class="terminal-dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="terminal-title">RUN.LOG // REALTIME</span>
+          <button class="terminal-clear" id="clearLog" type="button" aria-label="清空运行日志">CLR</button>
+        </div>
+        <div class="log-output" id="logOutput" role="log" aria-live="polite" aria-atomic="false"></div>
+      </div>
+
+      <p class="footnote">
+        <span class="footnote-dot" aria-hidden="true"></span>
+        <span>浏览器直连模式：密钥仅保留在当前页面内存，不写入本地存储。按 Ctrl + Enter 快速发送。</span>
+      </p>
+    </section>
+
+    <footer class="page-footer">
+      <span>CYBERBOSS // DAILY PROTOCOL</span>
+      <span>SECURE CHANNEL :: READY</span>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      "use strict";
+
+      const DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
+      const PUSHPLUS_URL = "https://www.pushplus.plus/send";
+      const REQUEST_TIMEOUT = 90000;
+      const LEVEL_LABELS = { info: "INF", pending: "RUN", success: "OK", error: "ERR", dim: "SYS" };
+
+      const form = document.getElementById("reportForm");
+      const tokenInput = document.getElementById("pushplusToken");
+      const keyInput = document.getElementById("deepseekKey");
+      const topicInput = document.getElementById("topic");
+      const topicCount = document.getElementById("topicCount");
+      const sendButton = document.getElementById("sendBtn");
+      const sendButtonText = sendButton.querySelector(".button-text");
+      const systemState = document.getElementById("systemState");
+      const statusText = document.getElementById("statusText");
+      const logOutput = document.getElementById("logOutput");
+      const clearLogButton = document.getElementById("clearLog");
+
+      const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+
+      let isSending = false;
+
+      function setState(text, tone = "idle") {
+        statusText.textContent = text;
+        systemState.dataset.tone = tone;
+      }
+
+      function appendLog(message, level = "info") {
+        const line = document.createElement("div");
+        line.className = "log-line";
+        line.dataset.level = level;
+
+        const time = document.createElement("span");
+        time.className = "log-time";
+        time.textContent = timeFormatter.format(new Date());
+
+        const tag = document.createElement("span");
+        tag.className = "log-tag";
+        tag.textContent = LEVEL_LABELS[level] || "INF";
+
+        const content = document.createElement("span");
+        content.className = "log-message";
+        content.textContent = message;
+
+        line.append(time, tag, content);
+        logOutput.append(line);
+        logOutput.scrollTop = logOutput.scrollHeight;
+      }
+
+      function setBusy(busy) {
+        sendButton.disabled = busy;
+        sendButton.classList.toggle("is-loading", busy);
+        sendButtonText.textContent = busy ? "正在发送..." : "一键发送";
+      }
+
+      function updateTopicCount() {
+        topicCount.textContent = Array.from(topicInput.value).length;
+      }
+
+      function focusField(field) {
+        field.focus();
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      async function requestJson(url, options, serviceName) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+        try {
+          const response = await fetch(url, { ...options, signal: controller.signal });
+          const raw = await response.text();
+          let data = {};
+
+          if (raw) {
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              throw new Error(`${serviceName} 返回了无法解析的内容（HTTP ${response.status}）。`);
+            }
+          }
+
+          if (!response.ok) {
+            const detail = data?.error?.message || data?.msg || data?.message || `HTTP ${response.status}`;
+            throw new Error(`${serviceName} 请求失败：${String(detail).slice(0, 300)}`);
+          }
+
+          return data;
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            throw new Error(`${serviceName} 请求超时（${REQUEST_TIMEOUT / 1000} 秒）。`);
+          }
+          if (error instanceof Error && error.message.startsWith(serviceName)) {
+            throw error;
+          }
+          const detail = error instanceof Error ? error.message : String(error);
+          throw new Error(`${serviceName} 网络请求失败：${detail}。可能是 CORS 或网络策略限制。`);
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
+
+      async function generateGreeting(apiKey, prompt) {
+        appendLog("正在请求 AI...", "pending");
+        appendLog("POST // api.deepseek.com/v1/chat/completions", "dim");
+        setState("THINKING", "busy");
+
+        const payload = {
+          model: "deepseek-chat",
+          messages: [
+            {
+              role: "system",
+              content: "你是赛博老板的定制早报助手。请严格遵循用户给出的主题与字数要求，只输出可以直接推送的早报正文，不要标题、前言、解释或 Markdown 标记。"
+            },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.85,
+          max_tokens: 1200,
+          stream: false
+        };
+
+        const data = await requestJson(
+          DEEPSEEK_URL,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+          },
+          "DeepSeek"
+        );
+
+        const content = data?.choices?.[0]?.message?.content;
+        if (typeof content !== "string" || !content.trim()) {
+          throw new Error("DeepSeek 未返回有效的早报内容。");
+        }
+
+        const greeting = content.trim();
+        appendLog(`AI 编译完成，共 ${Array.from(greeting).length} 个字符。`, "success");
+        const preview = greeting.replace(/\s+/g, " ").slice(0, 96);
+        appendLog(`PREVIEW // ${preview}${greeting.length > 96 ? "..." : ""}`, "dim");
+        return greeting;
+      }
+
+      async function sendToPushPlus(token, greeting) {
+        appendLog("正在推送到微信...", "pending");
+        appendLog("POST // www.pushplus.plus/send", "dim");
+        setState("UPLINK", "busy");
+
+        const payload = {
+          token,
+          title: "赛博老板的定制早报",
+          content: greeting,
+          template: "txt"
+        };
+
+        const data = await requestJson(
+          PUSHPLUS_URL,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          },
+          "PushPlus"
+        );
+
+        if (String(data?.code) !== "200") {
+          throw new Error(`PushPlus 推送失败：${data?.msg || data?.message || "未知错误"}`);
+        }
+
+        appendLog(`发送成功！${data?.msg ? ` // ${data.msg}` : ""}`, "success");
+      }
+
+      async function handleSubmit(event) {
+        event.preventDefault();
+        if (isSending) return;
+
+        const token = tokenInput.value.trim();
+        const apiKey = keyInput.value.trim();
+        const topic = topicInput.value.trim();
+
+        if (!token) {
+          appendLog("缺少 PushPlus Token，传输协议已中止。", "error");
+          setState("INPUT REQUIRED", "error");
+          focusField(tokenInput);
+          return;
+        }
+
+        if (!apiKey) {
+          appendLog("缺少 DeepSeek API Key，传输协议已中止。", "error");
+          setState("INPUT REQUIRED", "error");
+          focusField(keyInput);
+          return;
+        }
+
+        if (!topic) {
+          appendLog("自定义早报主题为空，传输协议已中止。", "error");
+          setState("INPUT REQUIRED", "error");
+          focusField(topicInput);
+          return;
+        }
+
+        isSending = true;
+        setBusy(true);
+        setState("INITIALIZING", "busy");
+        appendLog("启动早报传输协议...", "pending");
+
+        try {
+          const greeting = await generateGreeting(apiKey, topic);
+          await sendToPushPlus(token, greeting);
+          setState("DELIVERED", "success");
+          appendLog("任务完成。老板，新的一天已经上线。", "success");
+        } catch (error) {
+          console.error(error);
+          const message = error instanceof Error ? error.message : String(error);
+          appendLog(`ERROR // ${message}`, "error");
+          setState("FAULT", "error");
+        } finally {
+          isSending = false;
+          setBusy(false);
+        }
+      }
+
+      document.querySelectorAll(".reveal").forEach((button) => {
+        button.addEventListener("click", () => {
+          const input = document.getElementById(button.dataset.target);
+          if (!input) return;
+          const shouldShow = input.type === "password";
+          input.type = shouldShow ? "text" : "password";
+          button.textContent = shouldShow ? "HIDE" : "SHOW";
+          input.focus({ preventScroll: true });
+        });
+      });
+
+      topicInput.addEventListener("input", updateTopicCount);
+
+      clearLogButton.addEventListener("click", () => {
+        logOutput.replaceChildren();
+        appendLog("日志缓冲区已清空。", "dim");
+      });
+
+      form.addEventListener("submit", handleSubmit);
+
+      document.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          if (!isSending) form.requestSubmit();
+        }
+      });
+
+      updateTopicCount();
+      appendLog("神经链路已上线，等待指令。", "success");
+      appendLog("密钥仅保存在当前页面内存中，不写入本地存储。", "dim");
+
+      const canvas = document.getElementById("fxCanvas");
+      const context = canvas.getContext("2d");
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const palette = ["0, 240, 255", "255, 43, 214", "139, 92, 255"];
+      let canvasWidth = 0;
+      let canvasHeight = 0;
+      let particles = [];
+      let lastFrame = 0;
+
+      function makeParticle() {
+        return {
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          vx: (Math.random() - 0.5) * 0.26,
+          vy: (Math.random() - 0.5) * 0.26,
+          radius: 0.7 + Math.random() * 1.35,
+          color: palette[Math.floor(Math.random() * palette.length)]
+        };
+      }
+
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        canvasWidth = window.innerWidth;
+        canvasHeight = window.innerHeight;
+        canvas.width = Math.floor(canvasWidth * dpr);
+        canvas.height = Math.floor(canvasHeight * dpr);
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const count = Math.max(24, Math.min(58, Math.floor(canvasWidth / 24)));
+        particles = Array.from({ length: count }, makeParticle);
+      }
+
+      function drawParticles(now) {
+        if (!reduceMotion) {
+          if (now - lastFrame < 33) {
+            requestAnimationFrame(drawParticles);
+            return;
+          }
+          lastFrame = now;
+        }
+
+        context.clearRect(0, 0, canvasWidth, canvasHeight);
+        context.globalCompositeOperation = "lighter";
+
+        for (let index = 0; index < particles.length; index += 1) {
+          const point = particles[index];
+          if (!reduceMotion) {
+            point.x += point.vx;
+            point.y += point.vy;
+            if (point.x < -10) point.x = canvasWidth + 10;
+            if (point.x > canvasWidth + 10) point.x = -10;
+            if (point.y < -10) point.y = canvasHeight + 10;
+            if (point.y > canvasHeight + 10) point.y = -10;
+          }
+
+          context.beginPath();
+          context.arc(point.x, point.y, point.radius, 0, Math.PI * 2);
+          context.fillStyle = `rgba(${point.color}, 0.62)`;
+          context.shadowBlur = 9;
+          context.shadowColor = `rgba(${point.color}, 0.55)`;
+          context.fill();
+          context.shadowBlur = 0;
+
+          for (let otherIndex = index + 1; otherIndex < particles.length; otherIndex += 1) {
+            const other = particles[otherIndex];
+            const dx = point.x - other.x;
+            const dy = point.y - other.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared > 16900) continue;
+            const opacity = (1 - Math.sqrt(distanceSquared) / 130) * 0.14;
+            context.beginPath();
+            context.moveTo(point.x, point.y);
+            context.lineTo(other.x, other.y);
+            context.strokeStyle = `rgba(${point.color}, ${opacity})`;
+            context.lineWidth = 0.7;
+            context.stroke();
+          }
+        }
+
+        if (!reduceMotion) requestAnimationFrame(drawParticles);
+      }
+
+      if (context) {
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas, { passive: true });
+        if (reduceMotion) {
+          drawParticles(0);
+        } else {
+          requestAnimationFrame(drawParticles);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
